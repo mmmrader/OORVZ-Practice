@@ -1,0 +1,156 @@
+:root {
+    --primary-color: #e50914; /* Червоний Netflix */
+    --bg-dark: #141414;
+    --bg-card: #1f1f1f;
+    --text-main: #ffffff;
+    --text-muted: #b3b3b3;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Навігація */
+.navbar {
+    background-color: rgba(0, 0, 0, 0.95) !important;
+    border-bottom: 1px solid #333;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+
+.nav-link {
+    cursor: pointer; 
+}
+
+/* Hero Section */
+.hero-section {
+    padding: 80px 0;
+    text-align: center;
+    background: linear-gradient(to bottom, rgba(20,20,20,0.6) 0%, var(--bg-dark) 100%), 
+                url('https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/US-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg');
+    background-size: cover;
+    background-position: center;
+}
+
+.search-container {
+    max-width: 700px;
+    margin: 0 auto;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.form-control-lg {
+    background-color: #333;
+    border: 1px solid #444;
+    color: white;
+}
+
+.form-control-lg:focus {
+    background-color: #444;
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: none;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background-color: #b00610;
+}
+
+/* Картки фільмів */
+.movie-card {
+    background-color: var(--bg-card);
+    border: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.movie-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+}
+
+.poster-wrapper {
+    position: relative;
+    padding-top: 150%; /* Співвідношення сторін 2:3 */
+    overflow: hidden;
+    border-radius: 4px 4px 0 0;
+}
+
+.poster-wrapper img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-title {
+    color: white;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.movie-year-badge {
+    background-color: #333;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+/* Стилізація пагінації (темна тема) */
+.pagination {
+    --bs-pagination-bg: #1f1f1f;
+    --bs-pagination-border-color: #333;
+    --bs-pagination-color: #fff;
+    --bs-pagination-hover-bg: #333;
+    --bs-pagination-hover-border-color: #444;
+    --bs-pagination-hover-color: #e50914;
+}
+
+.page-link {
+    background-color: var(--bs-pagination-bg);
+    border-color: var(--bs-pagination-border-color);
+    color: var(--bs-pagination-color);
+    box-shadow: none !important;
+}
+
+.page-item.disabled .page-link {
+    background-color: var(--bg-dark);
+    border-color: #333;
+    color: var(--primary-color);
+}
+
+.page-item button:disabled {
+    background-color: #000;
+    color: #444;
+    border-color: #222;
+    cursor: not-allowed;
+}
+
+footer {
+    margin-top: auto;
+    background-color: #000;
+    padding: 20px 0;
+    text-align: center;
+    color: #555;
+    font-size: 0.8rem;
+}
