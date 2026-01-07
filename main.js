@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Вмикаємо нескінченний скрол
     window.addEventListener('scroll', handleInfiniteScroll);
 });
-
+console.lg('test')
 // --- ПЕРЕКЛАД (Google API) ---
 async function translateToEnglish(text) {
     const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text);
