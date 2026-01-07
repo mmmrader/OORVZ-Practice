@@ -90,7 +90,7 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = input.value.trim();
     if (query.length < 2) {
-        showError('Введіть назву фільму');
+        showError('Введіть щонайменше 2 символи для пошуку.');
         return;
     }
     addToHistory(query);
