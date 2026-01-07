@@ -39,47 +39,49 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('scroll', handleInfiniteScroll);
 });
 // --- ПЕРЕКЛАД ---
-// main.js
-
 async function translateToEnglish(text) {
-    console.log(`🚀 ВЕРСІЯ 2.0 | Перевіряємо текст: "${text}"`);
+    console.log(`🚀 Перевірка мови: "${text}"`);
 
-    // Перевірка: чи є у тексті щось КРІМ англійських літер, цифр та знаків?
-    // [^\x00-\x7F] означає "будь-який символ, що не входить до стандартної таблиці ASCII"
-    const needsTranslation = /[^\x00-\x7F]/.test(text);
+    // 1. Перевірка на кирилицю
+    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text);
 
-    if (!needsTranslation) {
-        console.log("✅ Текст англійською (або символи), не перекладаємо.");
+    if (!hasCyrillic) {
+        console.log("✅ Кирилиці немає, пошук оригіналу.");
         return text;
     }
 
-    console.log("🌍 Знайдено не-ASCII символи. Виконуємо запит на переклад...");
+    console.log("🌍 Знайдено кирилицю. Перекладаємо через Google...");
 
     try {
-        const response = await axios.get('https://api.mymemory.translated.net/get', {
-            params: {
-                q: text,
-                langpair: 'Autodetect|en'
-            }
-        });
-
-        if (response.data && response.data.responseData) {
-            const result = response.data.responseData.translatedText;
-            console.log(`✅ Результат перекладу: "${result}"`);
-            
-            // Захист від помилок API
-            if (result.includes("MYMEMORY WARNING") || result.includes("!!")) {
-                console.warn("⚠️ API перекладу повернуло помилку, використовуємо оригінал.");
-                return text;
-            }
-            
+        // Використовуємо Google Translate API (client=gtx) - він надійніший
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+        
+        const response = await axios.get(url);
+        
+        // Google повертає структуру [[["Translated Text",...]]]
+        if (response.data && response.data[0] && response.data[0][0]) {
+            const result = response.data[0][0][0];
+            console.log(`✅ Успішний переклад: "${result}"`);
             return result;
         }
     } catch (e) {
-        console.error("❌ Помилка з'єднання з перекладачем:", e);
+        console.error("❌ Google переклад не вдався, пробуємо резервний варіант...", e);
+        
+        // РЕЗЕРВ: Якщо Google заблокував, пробуємо MyMemory
+        try {
+            const fallbackResponse = await axios.get('https://api.mymemory.translated.net/get', {
+                params: { q: text, langpair: 'Autodetect|en' }
+            });
+            if (fallbackResponse.data.responseData.translatedText) {
+                console.log(`✅ Резервний переклад (MyMemory): "${fallbackResponse.data.responseData.translatedText}"`);
+                return fallbackResponse.data.responseData.translatedText;
+            }
+        } catch (err) {
+            console.error("❌ Обидва перекладача не спрацювали.");
+        }
     }
 
-    return text;
+    return text; // Якщо нічого не вийшло, повертаємо як є
 }
 
 // --- ОБРОБНИКИ ПОДІЙ ---
@@ -349,18 +351,12 @@ function addToHistory(query) {
     renderHistory();
 }
 window.searchFromTag = function(query) {
+    // 1. Вставляємо текст у поле
     input.value = query;
-    englishQuery = query; // Припускаємо, що теги вже англійською (або перекладуться при сабміті)
-    if (/[а-яА-Я]/.test(query)) { // Якщо тег кириличний - викликаємо через сабміт форми
-        input.value = query;
-        document.getElementById('searchForm').dispatchEvent(new Event('submit'));
-        return;
-    }
-    // Якщо англ - напряму
-    currentPage = 1; container.innerHTML = ''; currentQuery = query;
-    fetchMovies();
-    updateSectionTitle(`Результати: "${query}"`);
-    setActiveNav('navHome');
+    
+    // 2. Імітуємо натискання кнопки "Submit" форми
+    // Це автоматично запустить переклад і пошук
+    document.getElementById('searchForm').dispatchEvent(new Event('submit'));
 };
 window.toggleFavorite = function(id, btnElement) {
     const movieData = JSON.parse(decodeURIComponent(btnElement.getAttribute('data-movie')));
