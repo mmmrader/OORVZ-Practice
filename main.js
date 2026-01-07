@@ -39,20 +39,23 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('scroll', handleInfiniteScroll);
 });
 // --- ПЕРЕКЛАД ---
+// main.js
+
 async function translateToEnglish(text) {
-    console.log(`⏳ Починаємо переклад: "${text}"`);
+    console.log(`🚀 ВЕРСІЯ 2.0 | Перевіряємо текст: "${text}"`);
 
-    // ВИПРАВЛЕННЯ: Тепер ми шукаємо саме кириличні літери (укр/рос).
-    // Якщо кирилиці НЕМАЄ (!test), то вважаємо текст англійським.
-    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text);
+    // Перевірка: чи є у тексті щось КРІМ англійських літер, цифр та знаків?
+    // [^\x00-\x7F] означає "будь-який символ, що не входить до стандартної таблиці ASCII"
+    const needsTranslation = /[^\x00-\x7F]/.test(text);
 
-    if (!hasCyrillic) {
-        console.log("✅ Кирилиці не знайдено, шукаємо як є.");
+    if (!needsTranslation) {
+        console.log("✅ Текст англійською (або символи), не перекладаємо.");
         return text;
     }
 
+    console.log("🌍 Знайдено не-ASCII символи. Виконуємо запит на переклад...");
+
     try {
-        // Запит до MyMemory API
         const response = await axios.get('https://api.mymemory.translated.net/get', {
             params: {
                 q: text,
@@ -62,19 +65,20 @@ async function translateToEnglish(text) {
 
         if (response.data && response.data.responseData) {
             const result = response.data.responseData.translatedText;
-            console.log(`✅ Перекладено успішно: "${result}"`);
+            console.log(`✅ Результат перекладу: "${result}"`);
             
-            if (result.includes("MYMEMORY WARNING")) {
-                return text; 
+            // Захист від помилок API
+            if (result.includes("MYMEMORY WARNING") || result.includes("!!")) {
+                console.warn("⚠️ API перекладу повернуло помилку, використовуємо оригінал.");
+                return text;
             }
             
             return result;
         }
     } catch (e) {
-        console.error("❌ Помилка перекладу:", e);
+        console.error("❌ Помилка з'єднання з перекладачем:", e);
     }
 
-    console.log("⚠️ Переклад не вдався, шукаємо оригінал.");
     return text;
 }
 
