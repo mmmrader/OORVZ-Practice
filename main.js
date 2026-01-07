@@ -42,18 +42,21 @@ document.addEventListener('DOMContentLoaded', () => {
 async function translateToEnglish(text) {
     console.log(`⏳ Починаємо переклад: "${text}"`);
 
-    // 1. Якщо текст лише латиницею (наприклад "Matrix") - не перекладаємо
-    if (/^[a-zA-Z0-9\s\W]+$/.test(text)) {
-        console.log("✅ Текст вже англійською");
+    // ВИПРАВЛЕННЯ: Тепер ми шукаємо саме кириличні літери (укр/рос).
+    // Якщо кирилиці НЕМАЄ (!test), то вважаємо текст англійським.
+    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text);
+
+    if (!hasCyrillic) {
+        console.log("✅ Кирилиці не знайдено, шукаємо як є.");
         return text;
     }
 
     try {
-        // 2. Використовуємо MyMemory API (найстабільніший для Render)
+        // Запит до MyMemory API
         const response = await axios.get('https://api.mymemory.translated.net/get', {
             params: {
                 q: text,
-                langpair: 'Autodetect|en' // Автовизначення -> Англійська
+                langpair: 'Autodetect|en'
             }
         });
 
@@ -61,9 +64,8 @@ async function translateToEnglish(text) {
             const result = response.data.responseData.translatedText;
             console.log(`✅ Перекладено успішно: "${result}"`);
             
-            // Інколи API повертає помилку прямо в тексті, перевіряємо це
             if (result.includes("MYMEMORY WARNING")) {
-                return text; // Повертаємо оригінал, якщо ліміт вичерпано
+                return text; 
             }
             
             return result;
@@ -72,7 +74,6 @@ async function translateToEnglish(text) {
         console.error("❌ Помилка перекладу:", e);
     }
 
-    // 3. Якщо переклад не вдався - повертаємо оригінал
     console.log("⚠️ Переклад не вдався, шукаємо оригінал.");
     return text;
 }
