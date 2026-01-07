@@ -40,30 +40,40 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 // --- ПЕРЕКЛАД ---
 async function translateToEnglish(text) {
-    // Перевірка: якщо немає кирилиці (укр/рос літер), то не перекладаємо
-    // Це економить час і трафік
-    if (!/[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text)) {
+    console.log(`⏳ Починаємо переклад: "${text}"`);
+
+    // 1. Якщо текст лише латиницею (наприклад "Matrix") - не перекладаємо
+    if (/^[a-zA-Z0-9\s\W]+$/.test(text)) {
+        console.log("✅ Текст вже англійською");
         return text;
     }
 
     try {
-        // Використовуємо надійний Google Translate API (client=gtx)
-        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-        
-        const response = await axios.get(url);
-        
-        // Google повертає масив масивів, беремо потрібний текст
-        // Зазвичай це response.data[0][0][0]
-        if (response.data && response.data[0] && response.data[0][0]) {
-            const translatedText = response.data[0][0][0];
-            console.log(`Перекладено: ${text} -> ${translatedText}`);
-            return translatedText;
+        // 2. Використовуємо MyMemory API (найстабільніший для Render)
+        const response = await axios.get('https://api.mymemory.translated.net/get', {
+            params: {
+                q: text,
+                langpair: 'Autodetect|en' // Автовизначення -> Англійська
+            }
+        });
+
+        if (response.data && response.data.responseData) {
+            const result = response.data.responseData.translatedText;
+            console.log(`✅ Перекладено успішно: "${result}"`);
+            
+            // Інколи API повертає помилку прямо в тексті, перевіряємо це
+            if (result.includes("MYMEMORY WARNING")) {
+                return text; // Повертаємо оригінал, якщо ліміт вичерпано
+            }
+            
+            return result;
         }
     } catch (e) {
-        console.error("Помилка перекладу:", e);
+        console.error("❌ Помилка перекладу:", e);
     }
 
-    // Якщо переклад не вдався, повертаємо текст як є, щоб хоч щось шукало
+    // 3. Якщо переклад не вдався - повертаємо оригінал
+    console.log("⚠️ Переклад не вдався, шукаємо оригінал.");
     return text;
 }
 
