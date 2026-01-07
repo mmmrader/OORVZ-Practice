@@ -1,3 +1,8 @@
+@media (min-width: 992px) {
+    #moviesContainer .col:nth-child(10) {
+        display: none;
+    }
+}
 :root {
     --primary-color: #e50914; /* Червоний Netflix */
     --bg-dark: #141414;
@@ -153,4 +158,157 @@ footer {
     text-align: center;
     color: #555;
     font-size: 0.8rem;
+}
+:root {
+    --primary-color: #e50914;
+    --bg-dark: #141414;
+    --bg-card: #1f1f1f;
+    --text-main: #ffffff;
+}
+
+/* Кнопка сердечка на постері */
+
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10; 
+}
+
+.favorite-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.favorite-btn i {
+    font-size: 1.2rem;
+    color: white; /* Пусте сердечко - біле */
+    transition: color 0.2s;
+}
+
+.favorite-btn.active i {
+    color: #e50914; /* Активне сердечко - червоне */
+}
+
+/* Теги історії та серіалів */
+.badge-tag {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ddd;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.badge-tag:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.history-item {
+    background-color: rgba(0, 0, 0, 0.5);
+    border-color: #444;
+}
+
+.offcanvas {
+    background-color: rgba(20, 20, 20, 0.95) !important; /* Майже чорний */
+    backdrop-filter: blur(10px); /* Ефект розмиття фону */
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+}
+
+.offcanvas-header {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.offcanvas-title {
+    color: var(--primary-color);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 991px) {
+    .nav-link {
+        font-size: 1.2rem;
+        padding: 15px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+}
+/* style.css */
+
+/* --- СТИЛІЗАЦІЯ ФІЛЬТРІВ --- */
+.filters-panel {
+    background: rgba(255, 255, 255, 0.05); /* Легкий фон контейнера */
+    padding: 15px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.filters-panel select {
+    background-color: #2b2b2b; /* Темний фон select */
+    color: #e5e5e5;
+    border: 1px solid #444;
+    border-radius: 25px; /* Закруглені краї */
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.filters-panel select:hover,
+.filters-panel select:focus {
+    background-color: #333;
+    border-color: var(--primary-color); /* Червона обводка при кліку */
+    box-shadow: 0 0 10px rgba(229, 9, 20, 0.3);
+    outline: none;
+}
+
+/* Прибираємо стандартну стрілку select і додаємо свою (опціонально, але красиво) */
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e50914' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* --- КНОПКА "ВГОРУ" --- */
+#backToTopBtn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    z-index: 1000;
+    opacity: 0; /* Спочатку прихована */
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Плавна анімація */
+    background: var(--primary-color);
+    border: none;
+}
+
+#backToTopBtn:hover {
+    background-color: white;
+    color: var(--primary-color);
+    transform: translateY(-5px); /* Підстрибує при наведенні */
+}
+
+/* Клас для появи кнопки */
+#backToTopBtn.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }

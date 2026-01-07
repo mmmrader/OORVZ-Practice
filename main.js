@@ -1,115 +1,147 @@
-import axios from 'axios'; // [cite: 77]
+import axios from 'axios';
 
-// ВСТАВТЕ СЮДИ СВІЙ КЛЮЧ
-const API_KEY = '4c611589'; 
+const API_KEY = '4c611589'; // <--- Вставте ключ
 const BASE_URL = 'https://www.omdbapi.com/';
 
-// Елементи DOM [cite: 60]
-const form = document.getElementById('searchForm');
+// Елементи DOM
 const input = document.getElementById('searchInput');
 const container = document.getElementById('moviesContainer');
-const errorAlert = document.getElementById('errorAlert');
+const typeFilter = document.getElementById('typeFilter');
+const yearSort = document.getElementById('yearSort');
+const ratingFilter = document.getElementById('ratingFilter'); // Нове
+const savedCountBadge = document.getElementById('savedCount');
+const sectionTitle = document.getElementById('sectionTitle');
 const loader = document.getElementById('loader');
-const paginationNav = document.getElementById('paginationNav');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const pageIndicator = document.getElementById('pageIndicator');
 
-// Елементи навігації
-const navHome = document.getElementById('navHome');
-const navPopular = document.getElementById('navPopular');
-const navSaved = document.getElementById('navSaved');
-const navBrand = document.getElementById('navBrand');
-
+// Стан додатка
 let currentPage = 1;
 let currentQuery = '';
+let englishQuery = ''; // Збереження перекладеного запиту
+let currentType = '';
+let currentSort = 'default';
+let minRating = 0; // Мінімальний рейтинг
+let isLoading = false; // Щоб не грузити 100 разів при скролі
 let totalResults = 0;
 
-// Відновлення при завантаженні (LocalStorage) [cite: 93, 94]
+let favoriteMovies = JSON.parse(localStorage.getItem('favoriteMovies')) || [];
+let searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+
+const popularKeywords = ['Marvel', 'Harry Potter', 'Star Wars', 'Lord of the Rings', 'Batman', 'Avengers', 'Spider-Man'];
+const popularSeries = ['Breaking Bad', 'Game of Thrones', 'Stranger Things', 'The Witcher', 'The Mandalorian'];
+
+// --- ІНІЦІАЛІЗАЦІЯ ---
 document.addEventListener('DOMContentLoaded', () => {
-    // При завантаженні просто показуємо пошук, не шукаємо автоматично,
-    // поки користувач не натисне "Збережене" (за бажанням можна розкоментувати)
+    updateSavedCount();
+    renderHistory();
+    renderSeriesTags();
+    
+    // НЕСКІНЧЕННИЙ СКРОЛ
+    window.addEventListener('scroll', handleInfiniteScroll);
 });
 
-// --- ЛОГІКА НАВІГАЦІЇ ---
-
-// Функція "Додому" - очищення
-function goHome(e) {
-    if(e) e.preventDefault();
-    input.value = '';
-    container.innerHTML = '';
-    paginationNav.classList.add('d-none');
-    showError(null);
-    currentQuery = '';
-    // Очищаємо активний клас у кнопок
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    navHome.classList.add('active');
-}
-
-navHome.addEventListener('click', goHome);
-navBrand.addEventListener('click', goHome);
-
-// Функція "Популярне" (імітація)
-navPopular.addEventListener('click', (e) => {
-    e.preventDefault();
-    input.value = 'Harry Potter'; // Пресет популярного
-    handleSearch('Harry Potter');
-    setActiveNav(navPopular);
-});
-
-// Функція "Збережене" [cite: 43]
-navSaved.addEventListener('click', (e) => {
-    e.preventDefault();
-    const savedQuery = localStorage.getItem('lastQuery');
-    if (savedQuery) {
-        input.value = savedQuery;
-        handleSearch(savedQuery);
-        setActiveNav(navSaved);
-    } else {
-        showError('Історія пошуку порожня. Знайдіть щось спочатку!');
-        container.innerHTML = '';
-        paginationNav.classList.add('d-none');
+// --- ПЕРЕКЛАД (Magic) ---
+// OMDb розуміє тільки англійську. Ми використовуємо безкоштовний API MyMemory.
+async function translateToEnglish(text) {
+    // Якщо текст вже англійською (латиниця), не перекладаємо
+    if (/^[A-Za-z0-9\s\W]+$/.test(text)) {
+        return text;
     }
-});
 
-function setActiveNav(element) {
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    element.classList.add('active');
+    try {
+        // Запит до API перекладу (Autodetect -> English)
+        const response = await axios.get(`https://api.mymemory.translated.net/get`, {
+            params: {
+                q: text,
+                langpair: 'Autodetect|en'
+            }
+        });
+        
+        if (response.data && response.data.responseData) {
+            console.log(`Перекладено: ${text} -> ${response.data.responseData.translatedText}`);
+            return response.data.responseData.translatedText;
+        }
+    } catch (e) {
+        console.error("Помилка перекладу:", e);
+    }
+    return text; // Якщо помилка, повертаємо як є
 }
 
-// --- ОСНОВНИЙ ПОШУК ---
+// --- ОБРОБНИКИ ПОДІЙ ---
 
-form.addEventListener('submit', (e) => {
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = input.value.trim();
-    if (query.length < 3) { // [cite: 72]
-        showError('Введіть мінімум 3 символи.');
+    if (query.length < 2) {
+        showError('Введіть назву фільму');
         return;
     }
-    handleSearch(query);
-    setActiveNav(navHome); // Залишаємось на вкладці Home при пошуку
+    addToHistory(query);
+    
+    // Скидання стану
+    currentPage = 1;
+    currentQuery = query;
+    container.innerHTML = ''; 
+    updateSectionTitle(`Шукаємо: "${query}"...`);
+    
+    // 1. Перекладаємо запит
+    showLoader(true);
+    englishQuery = await translateToEnglish(query);
+    
+    // 2. Шукаємо
+    fetchMovies();
+    setActiveNav('navHome');
 });
 
-function handleSearch(query) {
-    currentQuery = query;
+// Фільтри
+typeFilter.addEventListener('change', () => {
+    currentType = typeFilter.value;
+    resetAndSearch();
+});
+
+yearSort.addEventListener('change', () => {
+    currentSort = yearSort.value;
+    resetAndSearch();
+});
+
+ratingFilter.addEventListener('change', () => {
+    minRating = parseFloat(ratingFilter.value);
+    // Тут не треба перезавантажувати API, просто ховаємо/показуємо картки
+    filterVisibleCardsByRating();
+});
+
+function resetAndSearch() {
+    if (!englishQuery) return;
     currentPage = 1;
-    localStorage.setItem('lastQuery', currentQuery); // Збереження [cite: 43]
-    fetchMovies(currentQuery, currentPage);
+    container.innerHTML = '';
+    fetchMovies();
 }
 
-// Функція запиту до API [cite: 80, 24]
-async function fetchMovies(query, page) {
+// --- НЕСКІНЧЕННИЙ СКРОЛ ---
+function handleInfiniteScroll() {
+    // (Висота всього документа - Висота вікна - Прокрутка) < 100px
+    const endOfPage = window.innerHeight + window.scrollY >= document.body.offsetHeight - 500;
+    
+    if (endOfPage && !isLoading && (currentPage * 10 < totalResults)) {
+        currentPage++;
+        fetchMovies();
+    }
+}
+
+// --- ОСНОВНА ЛОГІКА (API) ---
+
+async function fetchMovies() {
+    if (isLoading) return; // Захист від подвійного запиту
+    isLoading = true;
     showLoader(true);
     showError(null);
-    container.innerHTML = ''; 
 
     try {
         const response = await axios.get(BASE_URL, {
             params: {
                 apikey: API_KEY,
-                s: query,
-                page: page,
-                type: 'movie'
+                s: englishQuery, // Шукаємо англійською
+                page: currentPage,
+                type: currentType
             }
         });
 
@@ -117,33 +149,112 @@ async function fetchMovies(query, page) {
 
         if (data.Response === 'True') {
             totalResults = parseInt(data.totalResults);
-            renderMovies(data.Search); 
-            updatePagination(page, totalResults);
+            let movies = data.Search;
+
+            // Клієнтське сортування за роком
+            if (currentSort === 'newest') {
+                movies.sort((a, b) => parseInt(b.Year) - parseInt(a.Year));
+            } else if (currentSort === 'oldest') {
+                movies.sort((a, b) => parseInt(a.Year) - parseInt(b.Year));
+            }
+
+            renderMovies(movies);
+            
+            // Оновлюємо заголовок, якщо це перший запит
+            if (currentPage === 1) {
+                updateSectionTitle(`Результати для "${currentQuery}" (${englishQuery})`);
+            }
         } else {
-            showError(data.Error || 'Фільми не знайдено');
-            paginationNav.classList.add('d-none');
+            if (currentPage === 1) showError('Нічого не знайдено 😔');
         }
     } catch (error) {
-        showError('Помилка мережі: ' + error.message); // [cite: 85]
+        showError('Помилка: ' + error.message);
     } finally {
         showLoader(false);
+        isLoading = false;
     }
 }
 
-// Рендеринг (обмеження до 9 фільмів) [cite: 20]
+// Завантаження рейтингу
+async function fetchRatingForMovie(imdbID, elementId, cardId) {
+    try {
+        const response = await axios.get(BASE_URL, {
+            params: { apikey: API_KEY, i: imdbID }
+        });
+        const rating = parseFloat(response.data.imdbRating);
+        const element = document.getElementById(elementId);
+        const card = document.getElementById(cardId);
+        
+        if (element && !isNaN(rating)) {
+            element.innerHTML = `<i class="bi bi-star-fill"></i> ${rating}`;
+            // Зберігаємо рейтинг в атрибут картки для фільтрації
+            card.setAttribute('data-rating', rating);
+            
+            // Якщо рейтинг менший за обраний фільтр - ховаємо картку
+            if (rating < minRating) {
+                card.closest('.col').classList.add('d-none');
+            }
+        } else if (element) {
+            element.innerHTML = `<i class="bi bi-star"></i> -`;
+            card.setAttribute('data-rating', 0);
+            if (minRating > 0) card.closest('.col').classList.add('d-none');
+        }
+    } catch (e) { console.error(e); }
+}
+
+function filterVisibleCardsByRating() {
+    const cards = document.querySelectorAll('.movie-card');
+    cards.forEach(card => {
+        const rating = parseFloat(card.getAttribute('data-rating')) || 0;
+        const col = card.closest('.col');
+        
+        if (rating >= minRating) {
+            col.classList.remove('d-none');
+        } else {
+            col.classList.add('d-none');
+        }
+    });
+}
+
+// --- РЕНДЕРИНГ ---
+
 function renderMovies(movies) {
     if (!movies) return;
 
-    // Обрізаємо масив до 9 елементів
-    const limitedMovies = movies.slice(0, 9); // [cite: 66]
+    const moviesHTML = movies.map(movie => {
+        const isFav = favoriteMovies.some(fav => fav.imdbID === movie.imdbID);
+        const heartClass = isFav ? 'active' : '';
+        const heartIcon = isFav ? 'bi-heart-fill' : 'bi-heart';
+        const ratingElementId = `rating-${movie.imdbID}`;
+        const cardId = `card-${movie.imdbID}`;
 
-    const moviesHTML = limitedMovies.map(movie => `
-        <div class="col">
-            <div class="card h-100 movie-card shadow-sm">
-                <div class="poster-wrapper">
-                    <img src="${movie.Poster !== 'N/A' ? movie.Poster : 'https://via.placeholder.com/300x450?text=No+Poster'}" 
-                         alt="${movie.Title}">
+        const movieData = encodeURIComponent(JSON.stringify({
+            Title: movie.Title, Year: movie.Year, imdbID: movie.imdbID, Poster: movie.Poster
+        }));
+
+        // Запускаємо пошук рейтингу
+        fetchRatingForMovie(movie.imdbID, ratingElementId, cardId);
+
+        return `
+        <div class="col fade-in">
+            <div id="${cardId}" class="card h-100 movie-card shadow-sm position-relative" data-rating="0">
+                
+                <div class="rating-badge" id="${ratingElementId}">
+                    <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
                 </div>
+
+                <button class="favorite-btn ${heartClass}" 
+                        onclick="event.stopPropagation(); toggleFavorite('${movie.imdbID}', this)"
+                        data-movie="${movieData}">
+                    <i class="bi ${heartIcon}"></i>
+                </button>
+
+                <div class="poster-wrapper">
+                    <img src="${movie.Poster !== 'N/A' ? movie.Poster : 'https://placehold.co/300x450?text=No+Poster'}" 
+                         alt="${movie.Title}" loading="lazy" referrerpolicy="no-referrer"
+                         onerror="this.onerror=null; this.src='https://placehold.co/300x450?text=No+Poster';">
+                </div>
+                
                 <div class="card-body d-flex flex-column">
                     <h5 class="card-title text-truncate" title="${movie.Title}">${movie.Title}</h5>
                     <div class="mt-auto d-flex justify-content-between align-items-center">
@@ -153,45 +264,127 @@ function renderMovies(movies) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
     
-    container.innerHTML = moviesHTML;
+    container.insertAdjacentHTML('beforeend', moviesHTML);
 }
 
-// Пагінація [cite: 89]
-function updatePagination(page, total) {
-    paginationNav.classList.remove('d-none');
-    pageIndicator.innerText = `Стор. ${page}`;
-    
-    prevBtn.disabled = page === 1;
-    const totalPages = Math.ceil(total / 10);
-    nextBtn.disabled = page >= totalPages;
-}
+// --- ДОПОМІЖНІ ФУНКЦІЇ (Копія старих) ---
+// (Історія, Збережене, Навігація - все залишається як було в минулому коді)
+// Я додам сюди скорочені версії для цілісності
 
-prevBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-        currentPage--;
-        fetchMovies(currentQuery, currentPage);
-        window.scrollTo(0, 0); // Прокрутка вгору
+function showFavorites() {
+    container.innerHTML = '';
+    window.removeEventListener('scroll', handleInfiniteScroll); // Вимикаємо скрол у збережених
+    sectionTitle.classList.remove('d-none');
+    sectionTitle.innerText = 'Ваша колекція';
+    if (favoriteMovies.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-white"><p>Поки що пусто.</p></div>';
+        return;
     }
+    renderMovies(favoriteMovies);
+}
+
+document.getElementById('navHome').addEventListener('click', (e) => {
+    e.preventDefault();
+    container.innerHTML = ''; input.value = '';
+    window.addEventListener('scroll', handleInfiniteScroll); // Вмикаємо назад
+    updateSectionTitle(''); setActiveNav('navHome');
 });
 
-nextBtn.addEventListener('click', () => {
-    currentPage++;
-    fetchMovies(currentQuery, currentPage);
-    window.scrollTo(0, 0);
-});
+// Додайте решту функцій: toggleFavorite, addToHistory, renderHistory, etc.
+// Вони ідентичні попередньому варіанту.
 
-// Утиліти
+// Нижче функції-хелпери, які обов'язково мають бути:
 function showLoader(isLoading) {
     isLoading ? loader.classList.remove('d-none') : loader.classList.add('d-none');
 }
-
 function showError(msg) {
-    if (msg) {
-        errorAlert.textContent = msg;
-        errorAlert.classList.remove('d-none');
-    } else {
-        errorAlert.classList.add('d-none');
-    }
+    const errorAlert = document.getElementById('errorAlert');
+    if (msg) { errorAlert.textContent = msg; errorAlert.classList.remove('d-none'); } 
+    else { errorAlert.classList.add('d-none'); }
 }
+function updateSavedCount() { savedCountBadge.innerText = favoriteMovies.length; }
+function setActiveNav(id) {
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+function updateSectionTitle(text) {
+    sectionTitle.classList.remove('d-none');
+    sectionTitle.innerText = text;
+}
+function renderHistory() {
+    const historyContainer = document.getElementById('historyContainer');
+    if (searchHistory.length === 0) { historyContainer.innerHTML = ''; return; }
+    historyContainer.innerHTML = searchHistory.map(q => 
+        `<span class="badge badge-tag history-item" onclick="searchFromTag('${q}')">🕒 ${q}</span>`
+    ).join('');
+}
+function renderSeriesTags() {
+    document.getElementById('seriesTags').innerHTML = popularSeries.map(s => 
+        `<span class="badge badge-tag" onclick="searchFromTag('${s}')">📺 ${s}</span>`
+    ).join('');
+}
+function addToHistory(query) {
+    searchHistory = searchHistory.filter(item => item.toLowerCase() !== query.toLowerCase());
+    searchHistory.unshift(query);
+    if (searchHistory.length > 5) searchHistory.pop();
+    localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+    renderHistory();
+}
+window.searchFromTag = function(query) {
+    input.value = query;
+    englishQuery = query; // Припускаємо, що теги вже англійською (або перекладуться при сабміті)
+    if (/[а-яА-Я]/.test(query)) { // Якщо тег кириличний - викликаємо через сабміт форми
+        input.value = query;
+        document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+        return;
+    }
+    // Якщо англ - напряму
+    currentPage = 1; container.innerHTML = ''; currentQuery = query;
+    fetchMovies();
+    updateSectionTitle(`Результати: "${query}"`);
+    setActiveNav('navHome');
+};
+window.toggleFavorite = function(id, btnElement) {
+    const movieData = JSON.parse(decodeURIComponent(btnElement.getAttribute('data-movie')));
+    const index = favoriteMovies.findIndex(m => m.imdbID === id);
+    const icon = btnElement.querySelector('i');
+    if (index === -1) {
+        favoriteMovies.push(movieData); btnElement.classList.add('active'); icon.classList.replace('bi-heart', 'bi-heart-fill');
+    } else {
+        favoriteMovies.splice(index, 1); btnElement.classList.remove('active'); icon.classList.replace('bi-heart-fill', 'bi-heart');
+        if (document.getElementById('navSaved').classList.contains('active')) { container.innerHTML = ''; renderMovies(favoriteMovies); }
+    }
+    localStorage.setItem('favoriteMovies', JSON.stringify(favoriteMovies));
+    updateSavedCount();
+};
+
+document.getElementById('navPopular').addEventListener('click', (e) => {
+    e.preventDefault();
+    const randomQuery = popularKeywords[Math.floor(Math.random() * popularKeywords.length)];
+    englishQuery = randomQuery;
+    currentQuery = randomQuery;
+    currentPage = 1; container.innerHTML = '';
+    fetchMovies();
+    updateSectionTitle(`Популярне: "${randomQuery}"`);
+    setActiveNav('navPopular');
+});
+const backToTopBtn = document.getElementById('backToTopBtn');
+
+// Слухаємо скрол
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 300) { // Якщо прокрутили більше 300px
+        backToTopBtn.classList.add('show');
+    } else {
+        backToTopBtn.classList.remove('show');
+    }
+});
+
+// Клік по кнопці
+backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth' // Плавна прокрутка
+    });
+});
