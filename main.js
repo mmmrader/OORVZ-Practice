@@ -38,32 +38,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // НЕСКІНЧЕННИЙ СКРОЛ
     window.addEventListener('scroll', handleInfiniteScroll);
 });
-
-// --- ПЕРЕКЛАД (Magic) ---
-// OMDb розуміє тільки англійську. Ми використовуємо безкоштовний API MyMemory.
+// --- ПЕРЕКЛАД ---
 async function translateToEnglish(text) {
-    // Якщо текст вже англійською (латиниця), не перекладаємо
-    if (/^[A-Za-z0-9\s\W]+$/.test(text)) {
+    // Перевірка: якщо немає кирилиці (укр/рос літер), то не перекладаємо
+    // Це економить час і трафік
+    if (!/[а-яА-ЯёЁіІїЇєЄґҐ]/.test(text)) {
         return text;
     }
 
     try {
-        // Запит до API перекладу (Autodetect -> English)
-        const response = await axios.get(`https://api.mymemory.translated.net/get`, {
-            params: {
-                q: text,
-                langpair: 'Autodetect|en'
-            }
-        });
+        // Використовуємо надійний Google Translate API (client=gtx)
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
         
-        if (response.data && response.data.responseData) {
-            console.log(`Перекладено: ${text} -> ${response.data.responseData.translatedText}`);
-            return response.data.responseData.translatedText;
+        const response = await axios.get(url);
+        
+        // Google повертає масив масивів, беремо потрібний текст
+        // Зазвичай це response.data[0][0][0]
+        if (response.data && response.data[0] && response.data[0][0]) {
+            const translatedText = response.data[0][0][0];
+            console.log(`Перекладено: ${text} -> ${translatedText}`);
+            return translatedText;
         }
     } catch (e) {
         console.error("Помилка перекладу:", e);
     }
-    return text; // Якщо помилка, повертаємо як є
+
+    // Якщо переклад не вдався, повертаємо текст як є, щоб хоч щось шукало
+    return text;
 }
 
 // --- ОБРОБНИКИ ПОДІЙ ---
